@@ -1,5 +1,5 @@
 -- ============================================================
--- KBK Wholesale - Supabase Database Setup
+-- KBK Wholesale - Supabase Database Setup & Full Permissions
 -- Run this in Supabase SQL Editor
 -- ============================================================
 
@@ -67,12 +67,22 @@ CREATE TABLE IF NOT EXISTS settings (
   hero_subtitle TEXT DEFAULT ''
 );
 
--- ─── Disable RLS (Allows Admin Panel to update tables smoothly) ─
-ALTER TABLE categories DISABLE ROW LEVEL SECURITY;
-ALTER TABLE products DISABLE ROW LEVEL SECURITY;
-ALTER TABLE brands DISABLE ROW LEVEL SECURITY;
-ALTER TABLE contact DISABLE ROW LEVEL SECURITY;
-ALTER TABLE settings DISABLE ROW LEVEL SECURITY;
+-- ─── Disable RLS ───────────────────────────────────────────
+ALTER TABLE IF EXISTS categories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS brands DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS contact DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS settings DISABLE ROW LEVEL SECURITY;
+
+-- ─── Grant Table Permissions ───────────────────────────────
+GRANT ALL ON TABLE categories TO anon, authenticated, service_role;
+GRANT ALL ON TABLE products TO anon, authenticated, service_role;
+GRANT ALL ON TABLE brands TO anon, authenticated, service_role;
+GRANT ALL ON TABLE contact TO anon, authenticated, service_role;
+GRANT ALL ON TABLE settings TO anon, authenticated, service_role;
+
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 
 -- ─── Insert Default Data ──────────────────────────────────
 INSERT INTO contact (phone, whatsapp, email, address, working_hours)
