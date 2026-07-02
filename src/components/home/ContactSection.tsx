@@ -1,47 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Phone, Mail, Clock, Send, MessageCircle } from 'lucide-react';
+import { getContactInfo } from '@/lib/firestore';
+import type { ContactInfo } from '@/types';
 import toast from 'react-hot-toast';
 
-const contactDetails = [
-  {
-    icon: MapPin,
-    title: 'Our Address',
-    lines: ['Karambakkudi,', 'Pudukkottai District,', 'Tamil Nadu - 622302'],
-    color: '#D40000',
-  },
-  {
-    icon: Phone,
-    title: 'Phone',
-    lines: ['+91 99762 89418', '+91 93606 44594'],
-    color: '#10B981',
-    href: 'tel:+919976289418',
-  },
-  {
-    icon: MessageCircle,
-    title: 'WhatsApp',
-    lines: ['+91 99762 89418'],
-    color: '#25D366',
-    href: 'https://wa.me/919976289418',
-  },
-  {
-    icon: Mail,
-    title: 'Email',
-    lines: ['info@kbkwholesale.in'],
-    color: '#8B5CF6',
-    href: 'mailto:info@kbkwholesale.in',
-  },
-  {
-    icon: Clock,
-    title: 'Business Hours',
-    lines: ['Mon – Sat: 9 AM – 7 PM', 'Sunday: Closed'],
-    color: '#F59E0B',
-  },
-];
-
 export default function ContactSection() {
+  const [info, setInfo] = useState<ContactInfo>({
+    phone: '+91 99762 89418',
+    whatsapp: '+91 99762 89418',
+    email: 'info@kbkwholesale.in',
+    address: 'Karambakkudi,\nPudukkottai District,\nTamil Nadu - 622302',
+    mapLink: '',
+    workingHours: 'Mon – Sat: 9 AM – 7 PM',
+  });
+
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -51,15 +26,67 @@ export default function ContactSection() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    getContactInfo()
+      .then((data) => {
+        if (data) {
+          setInfo({
+            phone: data.phone || '+91 99762 89418',
+            whatsapp: data.whatsapp || '+91 99762 89418',
+            email: data.email || 'info@kbkwholesale.in',
+            address: data.address || 'Karambakkudi,\nPudukkottai District,\nTamil Nadu - 622302',
+            mapLink: data.mapLink || '',
+            workingHours: data.workingHours || 'Mon – Sat: 9 AM – 7 PM',
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    // Simulate form submission (integrate with EmailJS or Supabase)
-    await new Promise((r) => setTimeout(r, 1500));
+    await new Promise((r) => setTimeout(r, 1200));
     toast.success('Message sent! We will contact you within 24 hours.');
     setForm({ name: '', email: '', phone: '', business: '', message: '' });
     setSubmitting(false);
   };
+
+  const contactDetails = [
+    {
+      icon: MapPin,
+      title: 'Our Address',
+      lines: info.address.split('\n'),
+      color: '#D40000',
+    },
+    {
+      icon: Phone,
+      title: 'Phone',
+      lines: [info.phone],
+      color: '#10B981',
+      href: `tel:${info.phone.replace(/[^0-9+]/g, '')}`,
+    },
+    {
+      icon: MessageCircle,
+      title: 'WhatsApp',
+      lines: [info.whatsapp],
+      color: '#25D366',
+      href: `https://wa.me/${info.whatsapp.replace(/[^0-9]/g, '')}`,
+    },
+    {
+      icon: Mail,
+      title: 'Email',
+      lines: [info.email],
+      color: '#8B5CF6',
+      href: `mailto:${info.email}`,
+    },
+    {
+      icon: Clock,
+      title: 'Business Hours',
+      lines: [info.workingHours],
+      color: '#F59E0B',
+    },
+  ];
 
   return (
     <section id="contact" className="py-24 bg-gray-50">
@@ -130,7 +157,7 @@ export default function ContactSection() {
               className="rounded-2xl overflow-hidden border border-gray-200 h-48"
             >
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15727.123456789!2d78.97000000000001!3d10.490000000000001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3b00c9b0b0b0b0b0%3A0x0!2sKarambakkudi%2C%20Tamil%20Nadu!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin"
+                src={info.mapLink || "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d15727.123456789!2d78.97000000000001!3d10.490000000000001!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3b00c9b0b0b0b0b0%3A0x0!2sKarambakkudi%2C%20Tamil%20Nadu!5e0!3m2!1sen!2sin!4v1700000000000!5m2!1sen!2sin"}
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}

@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Zap, Mail, Phone, MapPin, ArrowRight } from 'lucide-react';
+import { Mail, Phone, MapPin, ArrowRight } from 'lucide-react';
+import { getContactInfo } from '@/lib/firestore';
+import type { ContactInfo } from '@/types';
 
 const quickLinks = [
   { label: 'Home', href: '/' },
@@ -16,11 +18,36 @@ const quickLinks = [
 
 const categories = [
   'Chargers', 'Data Cables', 'Power Banks', 'Earbuds',
-  'Bluetooth Speakers', 'Tempered Glass', 'Smart Watches', 'Phone Cases',
+  'Bluetooth Speakers', 'Tempered Glass', 'Smart Watches', 'Neckbands',
 ];
 
 export default function Footer() {
   const year = new Date().getFullYear();
+  const [info, setInfo] = useState<ContactInfo>({
+    phone: '+91 99762 89418',
+    whatsapp: '+91 99762 89418',
+    email: 'info@kbkwholesale.in',
+    address: 'Karambakkudi,\nPudukkottai District,\nTamil Nadu - 622302',
+    mapLink: '',
+    workingHours: 'Mon – Sat: 9:00 AM – 7:00 PM',
+  });
+
+  useEffect(() => {
+    getContactInfo()
+      .then((data) => {
+        if (data) {
+          setInfo({
+            phone: data.phone || '+91 99762 89418',
+            whatsapp: data.whatsapp || '+91 99762 89418',
+            email: data.email || 'info@kbkwholesale.in',
+            address: data.address || 'Karambakkudi,\nPudukkottai District,\nTamil Nadu - 622302',
+            mapLink: data.mapLink || '',
+            workingHours: data.workingHours || 'Mon – Sat: 9:00 AM – 7:00 PM',
+          });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <footer className="bg-gray-950 text-gray-300 pt-16 pb-6">
@@ -46,7 +73,7 @@ export default function Footer() {
               </div>
             </Link>
             <p className="text-sm text-gray-400 leading-relaxed mb-5">
-              India&apos;s trusted wholesale supplier of premium mobile accessories. Serving 1500+ retailers with quality, reliability, and competitive pricing.
+              India&apos;s trusted wholesale supplier of premium mobile accessories. Serving retailers with quality, reliability, and competitive pricing.
             </p>
             <div className="flex gap-3">
               {[
@@ -109,25 +136,27 @@ export default function Footer() {
             <ul className="space-y-4">
               <li className="flex items-start gap-3">
                 <MapPin size={16} className="text-red-400 mt-0.5 shrink-0" />
-                <span className="text-sm text-gray-400">Karambakkudi,<br />Pudukkottai District,<br />Tamil Nadu - 622302</span>
+                <span className="text-sm text-gray-400 whitespace-pre-line">{info.address}</span>
               </li>
               <li className="flex items-center gap-3">
                 <Phone size={16} className="text-red-400 shrink-0" />
                 <div>
-                  <a href="tel:+919976289418" className="text-sm text-gray-400 hover:text-red-400 transition-colors block">+91 99762 89418</a>
-                  <a href="tel:+919360644594" className="text-sm text-gray-400 hover:text-red-400 transition-colors block">+91 93606 44594</a>
+                  <a href={`tel:${info.phone.replace(/[^0-9+]/g, '')}`} className="text-sm text-gray-400 hover:text-red-400 transition-colors block">
+                    {info.phone}
+                  </a>
                 </div>
               </li>
               <li className="flex items-center gap-3">
                 <Mail size={16} className="text-red-400 shrink-0" />
-                <a href="mailto:info@kbkwholesale.in" className="text-sm text-gray-400 hover:text-red-400 transition-colors">info@kbkwholesale.in</a>
+                <a href={`mailto:${info.email}`} className="text-sm text-gray-400 hover:text-red-400 transition-colors">
+                  {info.email}
+                </a>
               </li>
             </ul>
 
             <div className="mt-5 p-3.5 rounded-xl bg-gray-800/60 border border-gray-700/50">
               <p className="text-xs text-gray-400 font-medium mb-0.5">Business Hours</p>
-              <p className="text-sm text-gray-300">Mon – Sat: 9:00 AM – 7:00 PM</p>
-              <p className="text-xs text-gray-500">Sunday: Closed</p>
+              <p className="text-sm text-gray-300">{info.workingHours}</p>
             </div>
           </div>
         </div>
@@ -140,7 +169,6 @@ export default function Footer() {
           <div className="flex gap-5">
             <Link href="/privacy" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">Privacy Policy</Link>
             <Link href="/terms" className="text-xs text-gray-500 hover:text-gray-300 transition-colors">Terms & Conditions</Link>
-            {/* Hidden admin link */}
             <Link href="/admin" className="text-xs text-gray-700 hover:text-gray-500 transition-colors">Admin</Link>
           </div>
         </div>
