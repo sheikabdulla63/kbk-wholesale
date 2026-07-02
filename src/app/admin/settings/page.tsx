@@ -45,16 +45,20 @@ export default function AdminSettingsPage() {
     setSavingContact(true);
     try {
       if (contactId) {
-        await updateContactInfo(contactId, contact);
+        const updatedId = await updateContactInfo(contactId, contact);
+        if (updatedId) setContactId(updatedId);
       } else {
         const id = await setContactInfo(contact);
         setContactId(id);
       }
       toast.success('Contact information saved!');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save. Check Supabase config.');
-    } finally { setSavingContact(false); }
+    } catch (err: unknown) {
+      console.error('Save contact error:', err);
+      const error = err as { message?: string };
+      toast.error(error.message || 'Failed to save contact info');
+    } finally {
+      setSavingContact(false);
+    }
   };
 
   const tabs = [

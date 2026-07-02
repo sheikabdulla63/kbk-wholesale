@@ -364,7 +364,9 @@ export async function getContactInfo(): Promise<ContactInfo | null> {
   };
 }
 
-export async function updateContactInfo(id: string, data: Partial<ContactInfo>): Promise<void> {
+export async function updateContactInfo(id: string, data: Partial<ContactInfo>): Promise<string> {
+  if (isMock) return id;
+
   const row: Record<string, unknown> = {};
   if (data.phone !== undefined) row.phone = data.phone;
   if (data.whatsapp !== undefined) row.whatsapp = data.whatsapp;
@@ -373,20 +375,41 @@ export async function updateContactInfo(id: string, data: Partial<ContactInfo>):
   if (data.mapLink !== undefined) row.map_link = data.mapLink;
   if (data.workingHours !== undefined) row.working_hours = data.workingHours;
 
+  // Check if current ID is a mock string like 'contact_default' (not a UUID)
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+  if (!isUUID) {
+    // Check if a row already exists in Supabase
+    const { data: existing } = await supabase.from('contact').select('id').limit(1).single();
+    if (existing?.id) {
+      const { error } = await supabase.from('contact').update(row).eq('id', existing.id);
+      if (error) throw error;
+      return existing.id;
+    } else {
+      // Create new row
+      const { data: created, error } = await supabase.from('contact').insert(row).select('id').single();
+      if (error) throw error;
+      return created.id;
+    }
+  }
+
   const { error } = await supabase.from('contact').update(row).eq('id', id);
   if (error) throw error;
+  return id;
 }
 
 export async function setContactInfo(data: ContactInfo): Promise<string> {
+  if (isMock) return 'contact_default';
+
   const { data: result, error } = await supabase
     .from('contact')
     .insert({
-      phone: data.phone,
-      whatsapp: data.whatsapp,
-      email: data.email,
-      address: data.address,
-      map_link: data.mapLink,
-      working_hours: data.workingHours,
+      phone: data.phone || '',
+      whatsapp: data.whatsapp || '',
+      email: data.email || '',
+      address: data.address || '',
+      map_link: data.mapLink || '',
+      working_hours: data.workingHours || '',
     })
     .select('id')
     .single();
