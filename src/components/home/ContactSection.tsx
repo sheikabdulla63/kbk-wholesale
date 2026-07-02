@@ -54,7 +54,7 @@ export default function ContactSection() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    // Simulate form submission (integrate with EmailJS or Firebase)
+    // Simulate form submission (integrate with EmailJS or Supabase)
     await new Promise((r) => setTimeout(r, 1500));
     toast.success('Message sent! We will contact you within 24 hours.');
     setForm({ name: '', email: '', phone: '', business: '', message: '' });

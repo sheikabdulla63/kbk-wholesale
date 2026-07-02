@@ -1,25 +1,42 @@
 // ============================================================
-// KBK Wholesale - Firebase Storage Helpers
+// KBK Wholesale - Supabase Storage Helpers
 // ============================================================
 
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { storage } from './firebase';
+import { supabase, isSupabaseConfigured } from './supabase';
+
+const BUCKET_NAME = 'kbk-images';
 
 /**
- * Upload a file to Firebase Storage and return its download URL.
+ * Upload a file to Supabase Storage and return its public URL.
  */
 export async function uploadImage(
   file: File,
   folder: 'products' | 'categories' | 'brands' | 'settings'
 ): Promise<string> {
+  if (!isSupabaseConfigured) {
+    throw new Error('Storage is not configured');
+  }
+
   const fileName = `${folder}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
-  const storageRef = ref(storage, fileName);
-  const snapshot = await uploadBytes(storageRef, file);
-  return getDownloadURL(snapshot.ref);
+
+  const { error } = await supabase.storage
+    .from(BUCKET_NAME)
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage
+    .from(BUCKET_NAME)
+    .getPublicUrl(fileName);
+
+  return data.publicUrl;
 }
 
 /**
- * Upload multiple images and return an array of download URLs.
+ * Upload multiple images and return an array of public URLs.
  */
 export async function uploadImages(
   files: File[],
@@ -29,12 +46,19 @@ export async function uploadImages(
 }
 
 /**
- * Delete an image from Firebase Storage by its download URL.
+ * Delete an image from Supabase Storage by its public URL.
  */
 export async function deleteImage(url: string): Promise<void> {
+  if (!isSupabaseConfigured) return;
+
   try {
-    const storageRef = ref(storage, url);
-    await deleteObject(storageRef);
+    // Extract the file path from the public URL
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split(`/object/public/${BUCKET_NAME}/`);
+    if (pathParts.length > 1) {
+      const filePath = decodeURIComponent(pathParts[1]);
+      await supabase.storage.from(BUCKET_NAME).remove([filePath]);
+    }
   } catch {
     // Silently ignore if file doesn't exist
   }

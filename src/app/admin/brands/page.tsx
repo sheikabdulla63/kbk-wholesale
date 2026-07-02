@@ -53,7 +53,7 @@ export default function AdminBrandsPage() {
       load();
     } catch (err) {
       console.error(err);
-      toast.error('Failed to add brand. Check Firebase config.');
+      toast.error('Failed to add brand. Check Supabase config.');
     } finally { setSaving(false); }
   };
 

@@ -8,7 +8,7 @@ import { getProducts, getCategories } from '@/lib/firestore';
 import type { Product, Category } from '@/types';
 import { motion } from 'framer-motion';
 
-// Demo products for when Firebase isn't configured
+// Demo products for when Supabase isn't configured
 const DEMO_PRODUCTS: Product[] = [
   {
     id: '1', productName: '65W GaN Fast Charger', categoryId: 'chargers', categoryName: 'Chargers',

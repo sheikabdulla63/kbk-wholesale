@@ -53,7 +53,7 @@ export default function AdminSettingsPage() {
       toast.success('Contact information saved!');
     } catch (err) {
       console.error(err);
-      toast.error('Failed to save. Check Firebase config.');
+      toast.error('Failed to save. Check Supabase config.');
     } finally { setSavingContact(false); }
   };
 
@@ -225,7 +225,7 @@ export default function AdminSettingsPage() {
               <h2 className="text-white font-semibold">Company Details</h2>
               <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
                 <p className="text-blue-300 text-sm">
-                  ℹ️ Company name and description are currently set to KBK defaults. Firebase integration allows you to change these dynamically.
+                  ℹ️ Company name and description are currently set to KBK defaults. Supabase integration allows you to change these dynamically.
                 </p>
               </div>
               {[

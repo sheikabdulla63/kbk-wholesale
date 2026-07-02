@@ -9,7 +9,7 @@ import { ProductCardSkeleton } from '@/components/ui/Skeletons';
 import type { Product } from '@/types';
 import { getProducts } from '@/lib/firestore';
 
-// Static demo products for when Firebase isn't configured
+// Static demo products for when Supabase isn't configured
 const DEMO_PRODUCTS: Product[] = [
   {
     id: '1',

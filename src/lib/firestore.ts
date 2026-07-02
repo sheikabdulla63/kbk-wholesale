@@ -1,28 +1,12 @@
 // ============================================================
-// KBK Wholesale - Firestore Database Operations (with Automatic Mocking)
+// KBK Wholesale - Database Operations (Supabase + Automatic Mock)
 // ============================================================
 
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  serverTimestamp,
-  QueryConstraint,
-} from 'firebase/firestore';
-import { db } from './firebase';
+import { supabase, isSupabaseConfigured } from './supabase';
 import type { Category, Product, Brand, ContactInfo, CompanySettings } from '@/types';
 
-// Detect if Firebase is using placeholder values to avoid hangs on local environment
-const isMock = !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 
-               process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID === 'YOUR_PROJECT_ID';
+// Use mock data when Supabase is not configured
+const isMock = !isSupabaseConfigured;
 
 // ─── MOCK DATA ──────────────────────────────────────────────
 
@@ -124,18 +108,78 @@ const DEMO_SETTINGS: CompanySettings = {
   heroSubtitle: 'Premium Mobile Accessories',
 };
 
+// ─── Helper to map Supabase row → Product ──────────────────
+function rowToProduct(row: Record<string, unknown>): Product {
+  return {
+    id: row.id as string,
+    productName: (row.product_name as string) || '',
+    categoryId: (row.category_id as string) || '',
+    categoryName: (row.category_name as string) || '',
+    brand: (row.brand as string) || '',
+    description: (row.description as string) || '',
+    specifications: (row.specifications as Record<string, string>) || {},
+    features: (row.features as string[]) || [],
+    colors: (row.colors as string[]) || [],
+    modelNumber: (row.model_number as string) || '',
+    stockStatus: (row.stock_status as 'in_stock' | 'out_of_stock' | 'limited') || 'in_stock',
+    featured: (row.featured as boolean) || false,
+    images: (row.images as string[]) || [],
+    warranty: (row.warranty as string) || '',
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+  };
+}
+
+function productToRow(data: Partial<Product>) {
+  const row: Record<string, unknown> = {};
+  if (data.productName !== undefined) row.product_name = data.productName;
+  if (data.categoryId !== undefined) row.category_id = data.categoryId;
+  if (data.categoryName !== undefined) row.category_name = data.categoryName;
+  if (data.brand !== undefined) row.brand = data.brand;
+  if (data.description !== undefined) row.description = data.description;
+  if (data.specifications !== undefined) row.specifications = data.specifications;
+  if (data.features !== undefined) row.features = data.features;
+  if (data.colors !== undefined) row.colors = data.colors;
+  if (data.modelNumber !== undefined) row.model_number = data.modelNumber;
+  if (data.stockStatus !== undefined) row.stock_status = data.stockStatus;
+  if (data.featured !== undefined) row.featured = data.featured;
+  if (data.images !== undefined) row.images = data.images;
+  if (data.warranty !== undefined) row.warranty = data.warranty;
+  return row;
+}
+
+function rowToCategory(row: Record<string, unknown>): Category {
+  return {
+    id: row.id as string,
+    categoryName: (row.category_name as string) || '',
+    slug: (row.slug as string) || '',
+    description: (row.description as string) || '',
+    image: (row.image as string) || '',
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+  };
+}
+
+function rowToBrand(row: Record<string, unknown>): Brand {
+  return {
+    id: row.id as string,
+    brandName: (row.brand_name as string) || '',
+    logo: (row.logo as string) || '',
+    description: (row.description as string) || '',
+    createdAt: (row.created_at as string) || new Date().toISOString(),
+  };
+}
+
 // ─── CATEGORIES ────────────────────────────────────────────
 
 export async function getCategories(): Promise<Category[]> {
   if (isMock) return DEMO_CATEGORIES;
 
-  const q = query(collection(db, 'categories'), orderBy('categoryName', 'asc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
-  })) as Category[];
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .order('category_name', { ascending: true });
+
+  if (error) throw error;
+  return (data || []).map(rowToCategory);
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
@@ -143,27 +187,46 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
     return DEMO_CATEGORIES.find(c => c.slug === slug) || null;
   }
 
-  const q = query(collection(db, 'categories'), where('slug', '==', slug));
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const docData = snapshot.docs[0];
-  return { id: docData.id, ...docData.data() } as Category;
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('slug', slug)
+    .single();
+
+  if (error || !data) return null;
+  return rowToCategory(data);
 }
 
 export async function addCategory(data: Omit<Category, 'id' | 'createdAt'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'categories'), {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
+  const { data: result, error } = await supabase
+    .from('categories')
+    .insert({
+      category_name: data.categoryName,
+      slug: data.slug,
+      description: data.description,
+      image: data.image,
+    })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return result.id;
 }
 
 export async function updateCategory(id: string, data: Partial<Category>): Promise<void> {
-  await updateDoc(doc(db, 'categories', id), { ...data, updatedAt: serverTimestamp() });
+  const row: Record<string, unknown> = {};
+  if (data.categoryName !== undefined) row.category_name = data.categoryName;
+  if (data.slug !== undefined) row.slug = data.slug;
+  if (data.description !== undefined) row.description = data.description;
+  if (data.image !== undefined) row.image = data.image;
+
+  const { error } = await supabase.from('categories').update(row).eq('id', id);
+  if (error) throw error;
 }
 
 export async function deleteCategory(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'categories', id));
+  const { error } = await supabase.from('categories').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ─── PRODUCTS ──────────────────────────────────────────────
@@ -187,25 +250,21 @@ export async function getProducts(filters?: {
     return result;
   }
 
-  const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
+  let query = supabase.from('products').select('*').order('created_at', { ascending: false });
 
   if (filters?.categoryId) {
-    constraints.unshift(where('categoryId', '==', filters.categoryId));
+    query = query.eq('category_id', filters.categoryId);
   }
   if (filters?.featured !== undefined) {
-    constraints.unshift(where('featured', '==', filters.featured));
+    query = query.eq('featured', filters.featured);
   }
   if (filters?.limitCount) {
-    constraints.push(limit(filters.limitCount));
+    query = query.limit(filters.limitCount);
   }
 
-  const q = query(collection(db, 'products'), ...constraints);
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-    createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
-  })) as Product[];
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []).map(rowToProduct);
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
@@ -213,29 +272,39 @@ export async function getProductById(id: string): Promise<Product | null> {
     return DEMO_PRODUCTS.find(p => p.id === id) || null;
   }
 
-  const snapshot = await getDoc(doc(db, 'products', id));
-  if (!snapshot.exists()) return null;
-  return {
-    id: snapshot.id,
-    ...snapshot.data(),
-    createdAt: snapshot.data().createdAt?.toDate?.() || snapshot.data().createdAt,
-  } as Product;
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) return null;
+  return rowToProduct(data);
 }
 
 export async function addProduct(data: Omit<Product, 'id' | 'createdAt'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'products'), {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
+  const { data: result, error } = await supabase
+    .from('products')
+    .insert(productToRow(data))
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return result.id;
 }
 
 export async function updateProduct(id: string, data: Partial<Product>): Promise<void> {
-  await updateDoc(doc(db, 'products', id), { ...data, updatedAt: serverTimestamp() });
+  const { error } = await supabase
+    .from('products')
+    .update(productToRow(data))
+    .eq('id', id);
+
+  if (error) throw error;
 }
 
 export async function deleteProduct(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'products', id));
+  const { error } = await supabase.from('products').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ─── BRANDS ───────────────────────────────────────────────
@@ -243,21 +312,33 @@ export async function deleteProduct(id: string): Promise<void> {
 export async function getBrands(): Promise<Brand[]> {
   if (isMock) return DEMO_BRANDS;
 
-  const q = query(collection(db, 'brands'), orderBy('brandName', 'asc'));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as Brand[];
+  const { data, error } = await supabase
+    .from('brands')
+    .select('*')
+    .order('brand_name', { ascending: true });
+
+  if (error) throw error;
+  return (data || []).map(rowToBrand);
 }
 
 export async function addBrand(data: Omit<Brand, 'id' | 'createdAt'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'brands'), {
-    ...data,
-    createdAt: serverTimestamp(),
-  });
-  return ref.id;
+  const { data: result, error } = await supabase
+    .from('brands')
+    .insert({
+      brand_name: data.brandName,
+      logo: data.logo,
+      description: data.description || '',
+    })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return result.id;
 }
 
 export async function deleteBrand(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'brands', id));
+  const { error } = await supabase.from('brands').delete().eq('id', id);
+  if (error) throw error;
 }
 
 // ─── CONTACT INFO ──────────────────────────────────────────
@@ -265,18 +346,53 @@ export async function deleteBrand(id: string): Promise<void> {
 export async function getContactInfo(): Promise<ContactInfo | null> {
   if (isMock) return DEMO_CONTACT;
 
-  const snapshot = await getDocs(collection(db, 'contact'));
-  if (snapshot.empty) return null;
-  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as ContactInfo;
+  const { data, error } = await supabase
+    .from('contact')
+    .select('*')
+    .limit(1)
+    .single();
+
+  if (error || !data) return DEMO_CONTACT;
+  return {
+    id: data.id,
+    phone: data.phone || '',
+    whatsapp: data.whatsapp || '',
+    email: data.email || '',
+    address: data.address || '',
+    mapLink: data.map_link || '',
+    workingHours: data.working_hours || '',
+  };
 }
 
 export async function updateContactInfo(id: string, data: Partial<ContactInfo>): Promise<void> {
-  await updateDoc(doc(db, 'contact', id), data);
+  const row: Record<string, unknown> = {};
+  if (data.phone !== undefined) row.phone = data.phone;
+  if (data.whatsapp !== undefined) row.whatsapp = data.whatsapp;
+  if (data.email !== undefined) row.email = data.email;
+  if (data.address !== undefined) row.address = data.address;
+  if (data.mapLink !== undefined) row.map_link = data.mapLink;
+  if (data.workingHours !== undefined) row.working_hours = data.workingHours;
+
+  const { error } = await supabase.from('contact').update(row).eq('id', id);
+  if (error) throw error;
 }
 
 export async function setContactInfo(data: ContactInfo): Promise<string> {
-  const ref = await addDoc(collection(db, 'contact'), data);
-  return ref.id;
+  const { data: result, error } = await supabase
+    .from('contact')
+    .insert({
+      phone: data.phone,
+      whatsapp: data.whatsapp,
+      email: data.email,
+      address: data.address,
+      map_link: data.mapLink,
+      working_hours: data.workingHours,
+    })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return result.id;
 }
 
 // ─── COMPANY SETTINGS ──────────────────────────────────────
@@ -284,16 +400,40 @@ export async function setContactInfo(data: ContactInfo): Promise<string> {
 export async function getCompanySettings(): Promise<CompanySettings | null> {
   if (isMock) return DEMO_SETTINGS;
 
-  const snapshot = await getDocs(collection(db, 'settings'));
-  if (snapshot.empty) return null;
-  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as CompanySettings;
+  const { data, error } = await supabase
+    .from('settings')
+    .select('*')
+    .limit(1)
+    .single();
+
+  if (error || !data) return DEMO_SETTINGS;
+  return {
+    id: data.id,
+    companyName: data.company_name || '',
+    logo: data.logo || '',
+    tagline: data.tagline || '',
+    description: data.description || '',
+    vision: data.vision || '',
+    heroTitle: data.hero_title || '',
+    heroSubtitle: data.hero_subtitle || '',
+  };
 }
 
 export async function updateCompanySettings(
   id: string,
   data: Partial<CompanySettings>
 ): Promise<void> {
-  await updateDoc(doc(db, 'settings', id), data);
+  const row: Record<string, unknown> = {};
+  if (data.companyName !== undefined) row.company_name = data.companyName;
+  if (data.logo !== undefined) row.logo = data.logo;
+  if (data.tagline !== undefined) row.tagline = data.tagline;
+  if (data.description !== undefined) row.description = data.description;
+  if (data.vision !== undefined) row.vision = data.vision;
+  if (data.heroTitle !== undefined) row.hero_title = data.heroTitle;
+  if (data.heroSubtitle !== undefined) row.hero_subtitle = data.heroSubtitle;
+
+  const { error } = await supabase.from('settings').update(row).eq('id', id);
+  if (error) throw error;
 }
 
 // ─── SEARCH ───────────────────────────────────────────────
@@ -309,9 +449,11 @@ export async function searchProducts(searchQuery: string): Promise<Product[]> {
     );
   }
 
-  const snapshot = await getDocs(collection(db, 'products'));
-  const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() })) as Product[];
   const q = searchQuery.toLowerCase();
+  const { data, error } = await supabase.from('products').select('*');
+
+  if (error) throw error;
+  const all = (data || []).map(rowToProduct);
   return all.filter(
     (p) =>
       p.productName?.toLowerCase().includes(q) ||

@@ -95,7 +95,7 @@ export default function AdminCategoriesPage() {
       load();
     } catch (err) {
       console.error(err);
-      toast.error('Failed to save category. Check Firebase config.');
+      toast.error('Failed to save category. Check Supabase config.');
     } finally {
       setSaving(false);
     }

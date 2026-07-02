@@ -44,7 +44,7 @@ export default function CategoriesPage() {
         const cats = await getCategories();
         setCategories(cats);
       } catch {
-        // Use static list if Firebase isn't connected
+        // Use static list if Supabase isn't connected
       } finally {
         setLoading(false);
       }

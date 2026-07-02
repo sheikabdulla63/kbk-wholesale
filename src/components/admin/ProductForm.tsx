@@ -155,7 +155,7 @@ export default function ProductForm({ editId }: ProductFormProps) {
       router.push('/admin/products');
     } catch (err) {
       console.error(err);
-      toast.error('Failed to save product. Check Firebase config.');
+      toast.error('Failed to save product. Check Supabase config.');
     } finally {
       setLoading(false);
     }

@@ -1,16 +1,11 @@
 // ============================================================
-// KBK Wholesale - Authentication Context & Hooks
+// KBK Wholesale - Authentication Context & Hooks (Supabase)
 // ============================================================
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  User,
-} from 'firebase/auth';
-import { auth } from './firebase';
+import { supabase, isSupabaseConfigured } from './supabase';
+import type { User } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -31,19 +26,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
+
+    // Get current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
       setLoading(false);
     });
-    return unsubscribe;
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    if (!isSupabaseConfigured) {
+      throw new Error('Supabase is not configured');
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      // Map Supabase errors to user-friendly codes
+      const err: { code?: string; message: string } = { message: error.message };
+      if (error.message.includes('Invalid login')) {
+        err.code = 'auth/invalid-credential';
+      } else if (error.message.includes('Email not confirmed')) {
+        err.code = 'auth/email-not-confirmed';
+      }
+      throw err;
+    }
   };
 
   const signOutUser = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
   };
 
   return (

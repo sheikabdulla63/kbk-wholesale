@@ -23,13 +23,15 @@ export default function AdminLoginPage() {
       toast.success('Welcome back, Admin!');
       router.replace('/admin');
     } catch (err: unknown) {
-      const error = err as { code?: string };
+      const error = err as { code?: string; message?: string };
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         toast.error('Invalid email or password');
       } else if (error.code === 'auth/user-not-found') {
         toast.error('Admin account not found');
+      } else if (error.code === 'auth/email-not-confirmed') {
+        toast.error('Please confirm your email first');
       } else {
-        toast.error('Login failed. Please try again.');
+        toast.error(error.message || 'Login failed. Please try again.');
       }
     } finally {
       setLoading(false);
