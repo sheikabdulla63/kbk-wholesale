@@ -1,0 +1,49 @@
+# Firebase Security Rules
+# ============================================================
+# Paste these into Firebase Console → Firestore → Rules tab
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper: only authenticated admin can write ──────────
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // ── Products: anyone can read, only admin can write ─────
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Categories ──────────────────────────────────────────
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Brands ──────────────────────────────────────────────
+    match /brands/{brandId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Contact info: public read, admin write ───────────────
+    match /contact/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Company settings: public read, admin write ───────────
+    match /settings/{docId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Deny everything else ─────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
