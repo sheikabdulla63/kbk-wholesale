@@ -1,5 +1,5 @@
 // ============================================================
-// KBK Wholesale - Supabase Storage Helpers
+// KBK Wholesale - Supabase Storage Helpers (with Base64 Fallback)
 // ============================================================
 
 import { supabase, isSupabaseConfigured } from './supabase';
@@ -7,36 +7,58 @@ import { supabase, isSupabaseConfigured } from './supabase';
 const BUCKET_NAME = 'kbk-images';
 
 /**
+ * Convert a File to a Base64 Data URL (fallback when cloud storage is unavailable)
+ */
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+}
+
+/**
  * Upload a file to Supabase Storage and return its public URL.
+ * Automatically falls back to Base64 Data URL if storage bucket fails/missing.
  */
 export async function uploadImage(
   file: File,
   folder: 'products' | 'categories' | 'brands' | 'settings'
 ): Promise<string> {
   if (!isSupabaseConfigured) {
-    throw new Error('Storage is not configured');
+    return fileToBase64(file);
   }
 
-  const fileName = `${folder}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+  try {
+    const fileName = `${folder}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
 
-  const { error } = await supabase.storage
-    .from(BUCKET_NAME)
-    .upload(fileName, file, {
-      cacheControl: '3600',
-      upsert: false,
-    });
+    const { error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: true,
+      });
 
-  if (error) throw error;
+    if (error) {
+      console.warn('Supabase storage upload failed, falling back to Data URL:', error.message);
+      return fileToBase64(file);
+    }
 
-  const { data } = supabase.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(fileName);
+    const { data } = supabase.storage
+      .from(BUCKET_NAME)
+      .getPublicUrl(fileName);
 
-  return data.publicUrl;
+    return data.publicUrl;
+  } catch (err) {
+    console.warn('Storage error, using Data URL fallback:', err);
+    return fileToBase64(file);
+  }
 }
 
 /**
- * Upload multiple images and return an array of public URLs.
+ * Upload multiple images and return an array of public URLs / Data URLs.
  */
 export async function uploadImages(
   files: File[],
@@ -49,10 +71,9 @@ export async function uploadImages(
  * Delete an image from Supabase Storage by its public URL.
  */
 export async function deleteImage(url: string): Promise<void> {
-  if (!isSupabaseConfigured) return;
+  if (!isSupabaseConfigured || url.startsWith('data:')) return;
 
   try {
-    // Extract the file path from the public URL
     const urlObj = new URL(url);
     const pathParts = urlObj.pathname.split(`/object/public/${BUCKET_NAME}/`);
     if (pathParts.length > 1) {

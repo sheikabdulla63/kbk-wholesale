@@ -445,7 +445,9 @@ export async function getCompanySettings(): Promise<CompanySettings | null> {
 export async function updateCompanySettings(
   id: string,
   data: Partial<CompanySettings>
-): Promise<void> {
+): Promise<string> {
+  if (isMock) return id;
+
   const row: Record<string, unknown> = {};
   if (data.companyName !== undefined) row.company_name = data.companyName;
   if (data.logo !== undefined) row.logo = data.logo;
@@ -455,8 +457,25 @@ export async function updateCompanySettings(
   if (data.heroTitle !== undefined) row.hero_title = data.heroTitle;
   if (data.heroSubtitle !== undefined) row.hero_subtitle = data.heroSubtitle;
 
+  // Check if current ID is a mock string like 'settings_default' (not a UUID)
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+  if (!isUUID) {
+    const { data: existing } = await supabase.from('settings').select('id').limit(1).single();
+    if (existing?.id) {
+      const { error } = await supabase.from('settings').update(row).eq('id', existing.id);
+      if (error) throw error;
+      return existing.id;
+    } else {
+      const { data: created, error } = await supabase.from('settings').insert(row).select('id').single();
+      if (error) throw error;
+      return created.id;
+    }
+  }
+
   const { error } = await supabase.from('settings').update(row).eq('id', id);
   if (error) throw error;
+  return id;
 }
 
 // ─── SEARCH ───────────────────────────────────────────────

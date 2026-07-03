@@ -153,9 +153,10 @@ export default function ProductForm({ editId }: ProductFormProps) {
         toast.success('Product added successfully!');
       }
       router.push('/admin/products');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save product. Check Supabase config.');
+    } catch (err: unknown) {
+      console.error('Product save error:', err);
+      const error = err as { message?: string };
+      toast.error(error.message || 'Failed to save product. Check database connection.');
     } finally {
       setLoading(false);
     }
